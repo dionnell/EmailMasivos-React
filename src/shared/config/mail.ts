@@ -8,14 +8,16 @@
  */
 
 /** Extrae el email de un string tipo "Nombre <email@dominio.com>" o "email@dominio.com" */
-export function extractEmail(from: string): string {
+export function extractEmail(from: string | null | undefined): string | null {
+  if (!from) return null
   const match = from.match(/<([^>]+)>/)
   return match ? match[1] : from
 }
 
 /** Extrae el dominio (parte después del @) de un remitente resuelto */
-export function extractDomain(from: string): string {
+export function extractDomain(from: string | null | undefined): string | null {
   const email = extractEmail(from)
+  if (!email) return null
   return email.split('@')[1] ?? email
 }
 

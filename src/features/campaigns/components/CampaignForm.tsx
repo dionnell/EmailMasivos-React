@@ -27,7 +27,10 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
   const { data: templates = [] } = useTemplates()
   const { data: mailStatus } = useMailStatus()
 
-  const domain = mailStatus ? extractDomain(mailStatus.from) : null
+  // El dominio real sale del backend (MAIL_FROM). Si el backend no lo manda
+  // (versión vieja desplegada, o falla la request), se cae a resend.dev como
+  // último resorte para que el formulario nunca quede roto.
+  const domain = mailStatus ? (extractDomain(mailStatus.from) ?? 'resend.dev') : null
 
   const {
     register,
