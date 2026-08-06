@@ -1,7 +1,9 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { WandSparkles } from 'lucide-react'
-import { campaignSchema, DOMAINS, type CampaignFormValues } from '../schemas/campaign.schema'
+import { campaignSchema, type CampaignFormValues, type CampaignSubmitValues } from '../schemas/campaign.schema'
+import { extractDomain, buildFromEmail } from '@/shared/config/mail'
+import { useMailStatus } from '../hooks/use-mail-status'
 import { useTemplates } from '@/features/templates/hooks/use-templates'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -17,12 +19,15 @@ import {
 
 interface Props {
   defaultValues?: Partial<CampaignFormValues>
-  onSubmit: (values: CampaignFormValues) => void
+  onSubmit: (values: CampaignSubmitValues) => void
   isLoading?: boolean
 }
 
 export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
   const { data: templates = [] } = useTemplates()
+  const { data: mailStatus } = useMailStatus()
+
+  const domain = mailStatus ? extractDomain(mailStatus.from) : null
 
   const {
     register,
@@ -33,20 +38,18 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
     formState: { errors },
   } = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignSchema),
-    defaultValues: {
-      fromDomain: 'elavellano.cl',
-      ...defaultValues,
-    },
+    defaultValues,
   })
 
   const selectedTemplateId = watch('templateId')
   const fromName           = watch('fromName') ?? ''
-  const fromDomain         = watch('fromDomain') ?? 'elavellano.cl'
 
-  // Preview del remitente en tiempo real
-  const fromPreview = fromName
-    ? `${fromName} <${fromName.toLowerCase().replace(/\s+/g, '')}@${fromDomain}>`
-    : `(escribe un nombre)`
+  // Preview del remitente en tiempo real (mismo dominio que usa el backend)
+  const fromPreview = fromName && domain
+    ? `${fromName} <${buildFromEmail(fromName, domain)}>`
+    : fromName
+      ? '(cargando dominio del remitente...)'
+      : '(escribe un nombre)'
 
   function handleTemplateSelect(templateId: string) {
     if (templateId === 'none') {
@@ -60,8 +63,15 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
     setValue('body', template.body, { shouldValidate: true })
   }
 
+  function handleFormSubmit(values: CampaignFormValues) {
+    onSubmit({
+      ...values,
+      fromEmail: values.fromName && domain ? buildFromEmail(values.fromName, domain) : undefined,
+    })
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
 
       {/* Plantilla */}
       {templates.length > 0 && (
@@ -92,37 +102,21 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
       <div className="rounded-lg border p-4 space-y-3 bg-muted/20">
         <Label className="text-sm font-medium">Remitente</Label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nombre</Label>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nombre</Label>
+          <div className="flex items-center gap-1.5">
             <Input
               {...register('fromName')}
-              placeholder="ej: El Avellano, Ventas, Info"
+              placeholder="ej: Ventas, Info, Soporte"
+              className="flex-1"
             />
-            {errors.fromName && (
-              <p className="text-xs text-destructive">{errors.fromName.message}</p>
-            )}
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              @{domain ?? '...'}
+            </span>
           </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Dominio</Label>
-            <Controller
-              name="fromDomain"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>@{d}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
+          {errors.fromName && (
+            <p className="text-xs text-destructive">{errors.fromName.message}</p>
+          )}
         </div>
 
         {/* Preview del remitente */}
@@ -130,6 +124,13 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
           El correo se enviará como:{' '}
           <span className="font-mono text-foreground">{fromPreview}</span>
         </p>
+
+        {mailStatus && !mailStatus.hasCustomDomain && (
+          <p className="text-xs text-amber-600">
+            No hay un dominio propio configurado en el backend (MAIL_FROM) — se está usando
+            el dominio de pruebas de Resend, que solo entrega a la cuenta dueña del API key.
+          </p>
+        )}
       </div>
 
       {/* Nombre campaña */}
