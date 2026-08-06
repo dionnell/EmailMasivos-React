@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { DataTable } from '@/shared/components/data-table/DataTable'
 import { RecipientForm } from '../components/RecipientForm'
-import { ImportCsvDialog } from '../components/ImportCsvDialog'
+import { ImportRecipientsDialog } from '../components/ImportRecipientsDialog'
 import {
   useRecipients,
   useCreateRecipient,
@@ -54,7 +54,7 @@ export function RecipientListPage() {
             Gestiona tu lista de contactos
           </p>
         </div>
-        <ImportCsvDialog />
+        <ImportRecipientsDialog />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
