@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CampaignForm } from '../components/CampaignForm'
 import { useCreateCampaign } from '../hooks/use-campaigns'
-import type { CampaignFormValues } from '../schemas/campaign.schema'
+import type { CampaignSubmitValues } from '../schemas/campaign.schema'
 
 export function CampaignCreatePage() {
   const navigate = useNavigate()
   const { mutate: createCampaign, isPending } = useCreateCampaign()
 
-  function handleSubmit(values: CampaignFormValues) {
+  function handleSubmit(values: CampaignSubmitValues) {
     createCampaign(values, {
       onSuccess: () => navigate('/campaigns'),
     })

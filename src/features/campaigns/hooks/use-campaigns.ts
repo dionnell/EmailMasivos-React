@@ -36,7 +36,7 @@ export function useCampaignLogs(id: string) {
 export function useCreateCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Pick<Campaign, 'name' | 'subject' | 'body'> & { templateId?: string }) =>
+    mutationFn: (data: Pick<Campaign, 'name' | 'subject' | 'body' | 'fromName' | 'fromEmail'> & { templateId?: string }) =>
       api.post<Campaign>(ENDPOINTS.campaigns.create, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })

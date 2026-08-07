@@ -26,6 +26,6 @@ export const ENDPOINTS = {
     metrics: '/dashboard/metrics',
   },
   mail: {
-    domains: '/mail/domains',
+    status: '/mail/status',
   },
 } as const
