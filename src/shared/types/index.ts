@@ -8,7 +8,7 @@ export interface Campaign {
   status: CampaignStatus
   templateId?: string
   fromName?: string
-  fromDomain?: string
+  fromEmail?: string
   totalRecipients: number
   sentCount: number
   failedCount: number
@@ -42,7 +42,8 @@ export interface Recipient {
 export interface Template {
   id: string
   name: string
-  subject: string
+  type: 'template' | 'signature'
+  subject?: string
   body: string
   createdAt: string
 }

@@ -22,3 +22,16 @@ api.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+/**
+ * Extrae un mensaje legible del error de NestJS: { statusCode, message, error }
+ * donde 'message' puede ser un string o un array de errores de class-validator.
+ */
+export function getErrorMessage(err: unknown, fallback = 'Ocurrió un error inesperado'): string {
+  if (axios.isAxiosError(err)) {
+    const message = err.response?.data?.message
+    if (Array.isArray(message)) return message.join(', ')
+    if (typeof message === 'string') return message
+  }
+  return fallback
+}

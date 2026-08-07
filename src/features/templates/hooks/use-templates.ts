@@ -1,15 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sileo } from 'sileo'
-import { api } from '@/shared/api/axios'
+import { api, getErrorMessage } from '@/shared/api/axios'
 import { ENDPOINTS } from '@/shared/api/endpoints'
 import type { Template } from '@/shared/types'
 
 const QUERY_KEY = ['templates']
 
-export function useTemplates() {
+export function useTemplates(type?: 'template' | 'signature') {
   return useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: () => api.get<Template[]>(ENDPOINTS.templates.list).then((r) => r.data),
+    queryKey: [...QUERY_KEY, type ?? 'all'],
+    queryFn: () =>
+      api
+        .get<Template[]>(ENDPOINTS.templates.list, { params: type ? { type } : undefined })
+        .then((r) => r.data),
   })
 }
 
@@ -22,7 +25,7 @@ export function useCreateTemplate() {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       sileo.success({title: 'Plantilla creada'})
     },
-    onError: () => sileo.error({title: 'Error al crear la plantilla'}),
+    onError: (err) => sileo.error({ title: 'Error al crear la plantilla', description: getErrorMessage(err) }),
   })
 }
 
@@ -35,7 +38,7 @@ export function useUpdateTemplate(id: string) {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       sileo.success({title: 'Plantilla actualizada'})
     },
-    onError: () => sileo.error({title: 'Error al actualizar'}),
+    onError: (err) => sileo.error({ title: 'Error al actualizar', description: getErrorMessage(err) }),
   })
 }
 
@@ -47,6 +50,6 @@ export function useDeleteTemplate() {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       sileo.success({title: 'Plantilla eliminada'})
     },
-    onError: () => sileo.error({title: 'Error al eliminar la plantilla'}),
+    onError: (err) => sileo.error({ title: 'Error al eliminar la plantilla', description: getErrorMessage(err) }),
   })
 }

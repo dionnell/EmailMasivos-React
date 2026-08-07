@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { WandSparkles } from 'lucide-react'
+import { WandSparkles, PenLine } from 'lucide-react'
 import { campaignSchema, type CampaignFormValues, type CampaignSubmitValues } from '../schemas/campaign.schema'
 import { extractDomain, buildFromEmail } from '@/shared/config/mail'
 import { useMailStatus } from '../hooks/use-mail-status'
@@ -24,7 +25,8 @@ interface Props {
 }
 
 export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
-  const { data: templates = [] } = useTemplates()
+  const { data: templates = [] } = useTemplates('template')
+  const { data: signatures = [] } = useTemplates('signature')
   const { data: mailStatus } = useMailStatus()
 
   // El dominio real sale del backend (MAIL_FROM). Si el backend no lo manda
@@ -46,6 +48,7 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
 
   const selectedTemplateId = watch('templateId')
   const fromName           = watch('fromName') ?? ''
+  const [signatureSelectValue, setSignatureSelectValue] = useState('')
 
   // Preview del remitente en tiempo real (mismo dominio que usa el backend)
   const fromPreview = fromName && domain
@@ -62,8 +65,17 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
     const template = templates.find((t) => t.id === templateId)
     if (!template) return
     setValue('templateId', templateId)
-    setValue('subject', template.subject)
+    setValue('subject', template.subject ?? '')
     setValue('body', template.body, { shouldValidate: true })
+  }
+
+  function handleInsertSignature(signatureId: string) {
+    setSignatureSelectValue('') // es una acción, no una selección persistente
+    if (!signatureId) return
+    const signature = signatures.find((s) => s.id === signatureId)
+    if (!signature) return
+    const currentBody = watch('body') ?? ''
+    setValue('body', currentBody + signature.body, { shouldValidate: true })
   }
 
   function handleFormSubmit(values: CampaignFormValues) {
@@ -152,7 +164,23 @@ export function CampaignForm({ defaultValues, onSubmit, isLoading }: Props) {
 
       {/* Cuerpo */}
       <div className="space-y-1">
-        <Label>Cuerpo</Label>
+        <div className="flex items-center justify-between">
+          <Label>Cuerpo</Label>
+
+          {signatures.length > 0 && (
+            <Select value={signatureSelectValue} onValueChange={handleInsertSignature}>
+              <SelectTrigger className="h-7 w-auto text-xs gap-1.5 px-2.5">
+                <PenLine size={12} className="text-muted-foreground" />
+                <SelectValue placeholder="Insertar firma" />
+              </SelectTrigger>
+              <SelectContent>
+                {signatures.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         <Controller
           name="body"
           control={control}

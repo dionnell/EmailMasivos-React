@@ -132,22 +132,35 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
     },
   })
 
-  // Sync external value (ej: cuando se aplica una plantilla) — solo si no estamos en htmlMode
+  // Sync external value (ej: cuando se aplica una plantilla o se inserta una firma).
+  // Importante: esto debe seguir sincronizando aunque ya estemos en htmlMode, o si no,
+  // una vez se carga un HTML complejo, cualquier cambio externo posterior (otra plantilla,
+  // insertar una firma) queda ignorado para siempre.
   useEffect(() => {
-    if (!editor || htmlMode) return
-    if (value !== editor.getHTML()) {
-      // Si el nuevo valor es HTML complejo, cambiar a modo HTML en vez de cargarlo en Tiptap
-      if (isComplexHtml(value)) {
-        setHtmlCode(value)
+    if (!editor) return
+
+    // Representación actual "real" según el modo en el que estamos
+    const currentValue = htmlMode ? htmlCode : editor.getHTML()
+    if (value === currentValue) return // ya sincronizado (este cambio vino de nuestro propio onChange)
+
+    if (isComplexHtml(value)) {
+      // El nuevo valor es HTML complejo: mostrarlo en modo HTML
+      setHtmlCode(value)
+      if (!htmlMode) {
         setHtmlMode(true)
         setMode('html')
-        onChange?.(value)
-        return
       }
-      editor.commands.setContent(value ?? '', { emitUpdate: false })
-      setHtmlCode(value ?? '')
+      return
     }
-  }, [value, editor, htmlMode])
+
+    // El nuevo valor es HTML simple: si veníamos de un htmlMode forzado, salir de ahí
+    if (htmlMode) {
+      setHtmlMode(false)
+      setMode('visual')
+    }
+    editor.commands.setContent(value ?? '', { emitUpdate: false })
+    setHtmlCode(value ?? '')
+  }, [value, editor, htmlMode, htmlCode])
 
   if (!editor) return null
 
