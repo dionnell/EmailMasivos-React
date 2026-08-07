@@ -7,6 +7,8 @@ import {TextStyle} from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import FontFamily from '@tiptap/extension-font-family'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import { mergeAttributes } from '@tiptap/core'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   AlignLeft, AlignCenter, AlignRight,
@@ -14,6 +16,7 @@ import {
   Link as LinkIcon, Eye, Code2,
   Heading2, Heading3,
   Undo, Redo, PenLine, AlertTriangle,
+  ImagePlus, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -97,6 +100,45 @@ function isComplexHtml(html: string): boolean {
   )
 }
 
+type ImageAlign = 'left' | 'right' | 'none'
+
+function imageStyleFor(align: ImageAlign): string {
+  const base = 'max-width:100%;height:auto;'
+  if (align === 'left')  return `${base}float:left;margin:0 16px 12px 0;`
+  if (align === 'right') return `${base}float:right;margin:0 0 12px 16px;`
+  return `${base}display:block;margin:12px auto;`
+}
+
+// Extiende la imagen de Tiptap con un atributo 'align' que se traduce a float,
+// para poder escribir texto al lado de la imagen (no solo arriba/abajo).
+const EmailImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: 'none' as ImageAlign,
+        parseHTML: (el: HTMLElement) => {
+          const dataAlign = el.getAttribute('data-align')
+          if (dataAlign) return dataAlign
+          const style = el.getAttribute('style') ?? ''
+          if (/float:\s*left/i.test(style))  return 'left'
+          if (/float:\s*right/i.test(style)) return 'right'
+          return 'none'
+        },
+        renderHTML: () => ({}), // el estilo final se arma completo en renderHTML de abajo
+      },
+    }
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    const align = (node.attrs.align as ImageAlign) ?? 'none'
+    const { align: _omit, ...rest } = HTMLAttributes
+    return [
+      'img',
+      mergeAttributes(rest, { 'data-align': align, style: imageStyleFor(align) }),
+    ]
+  },
+})
+
 export function RichEditor({ value = '', onChange, placeholder, minHeight = 240, error }: Props) {
   const complex = isComplexHtml(value)
   const [mode, setMode]         = useState<Mode>(complex ? 'html' : 'visual')
@@ -104,6 +146,10 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
   const [htmlMode, setHtmlMode] = useState(complex)
   const [linkUrl, setLinkUrl]   = useState('')
   const [showLink, setShowLink] = useState(false)
+  const [imageUrl, setImageUrl]     = useState('')
+  const [imageAlt, setImageAlt]     = useState('')
+  const [imageAlign, setImageAlign] = useState<ImageAlign>('none')
+  const [showImage, setShowImage]   = useState(false)
   const [color, setColor]       = useState('#000000')
 
   const editor = useEditor({
@@ -115,6 +161,7 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
       FontFamily,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Link.configure({ openOnClick: false, autolink: true }),
+      EmailImage,
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -210,6 +257,35 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
     setShowLink(false)
   }
 
+  function applyImage() {
+    if (!imageUrl) return
+    const tag = `<img src="${imageUrl}" alt="${imageAlt}" data-align="${imageAlign}" style="${imageStyleFor(imageAlign)}" />`
+
+    if (htmlMode) {
+      const next = htmlCode + tag
+      setHtmlCode(next)
+      onChange?.(next)
+    } else {
+      // Insertar un párrafo vacío después de la imagen para que el cursor
+      // caiga ahí. Sin esto, si la imagen queda como último nodo, ProseMirror
+      // no tiene dónde ubicar el texto y la imagen queda "seleccionada" —
+      // escribir sobre un nodo seleccionado lo reemplaza (desaparece).
+      editor.chain().focus().insertContent([
+        { type: 'image', attrs: { src: imageUrl, alt: imageAlt || null, align: imageAlign } },
+        { type: 'paragraph' },
+      ]).run()
+    }
+
+    setImageUrl('')
+    setImageAlt('')
+    setImageAlign('none')
+    setShowImage(false)
+  }
+
+  function setSelectedImageAlign(align: ImageAlign) {
+    editor.chain().focus().updateAttributes('image', { align }).run()
+  }
+
   function applyColor(hex: string) {
     setColor(hex)
     editor.chain().focus().setColor(hex).run()
@@ -242,6 +318,17 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
           <ModeTab m="preview" label="Preview"  icon={Eye}     />
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setShowImage((v) => !v)}
+            title="Insertar imagen"
+            className={cn(
+              'flex items-center gap-1 text-xs px-1.5 py-0.5 rounded transition-colors',
+              showImage ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+          >
+            <ImagePlus size={13} />
+          </button>
           <span className="text-xs text-muted-foreground hidden sm:block">Variables:</span>
           {VARIABLES.map((v) => (
             <button
@@ -263,6 +350,63 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
           ))}
         </div>
       </div>
+
+      {/* Panel de insertar imagen — funciona en modo Visual y HTML */}
+      {showImage && (
+        <div className="flex flex-col gap-2 px-3 py-2.5 border-b bg-muted/20">
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.png"
+              className="flex-1 text-sm bg-transparent outline-none border-b border-border/60 focus:border-foreground pb-0.5"
+              onKeyDown={(e) => e.key === 'Enter' && applyImage()}
+              autoFocus
+            />
+            <Button type="button" size="sm" variant="outline" className="h-6 text-xs shrink-0" onClick={applyImage} disabled={!imageUrl}>
+              Insertar
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-6 text-xs shrink-0"
+              onClick={() => { setShowImage(false); setImageUrl(''); setImageAlt('') }}>
+              Cancelar
+            </Button>
+          </div>
+          <input
+            type="text"
+            value={imageAlt}
+            onChange={(e) => setImageAlt(e.target.value)}
+            placeholder="Texto alternativo (opcional, recomendado)"
+            className="text-xs bg-transparent outline-none text-muted-foreground border-b border-border/40 focus:border-foreground pb-0.5"
+            onKeyDown={(e) => e.key === 'Enter' && applyImage()}
+          />
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1">Alinear:</span>
+            {([
+              { v: 'left',  label: 'Izquierda (texto a la derecha)', Icon: AlignLeft },
+              { v: 'none',  label: 'Centrada (bloque)',               Icon: AlignCenter },
+              { v: 'right', label: 'Derecha (texto a la izquierda)',  Icon: AlignRight },
+            ] as const).map(({ v, label, Icon }) => (
+              <button
+                key={v}
+                type="button"
+                title={label}
+                onClick={() => setImageAlign(v)}
+                className={cn(
+                  'h-6 w-6 flex items-center justify-center rounded transition-colors',
+                  imageAlign === v ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent',
+                )}
+              >
+                <Icon size={12} />
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pega la URL de una imagen ya subida a internet (ej: tu sitio web, un CDN). No se suben archivos aquí.
+            {imageAlign !== 'none' && ' Con alineación izquierda/derecha, el texto que escribas después fluye al lado de la imagen.'}
+          </p>
+        </div>
+      )}
 
       {/* Aviso cuando htmlMode está activo y el usuario está en Visual */}
       {htmlMode && mode === 'visual' && (
@@ -351,6 +495,42 @@ export function RichEditor({ value = '', onChange, placeholder, minHeight = 240,
             onClick={() => { editor.chain().focus().unsetLink().run(); setShowLink(false) }}>
             Quitar
           </Button>
+        </div>
+      )}
+
+      {/* Barra contextual: aparece al seleccionar una imagen ya insertada */}
+      {mode === 'visual' && !htmlMode && editor.isActive('image') && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+          <span className="text-xs text-muted-foreground">Imagen seleccionada — alinear:</span>
+          {([
+            { v: 'left',  label: 'Izquierda', Icon: AlignLeft },
+            { v: 'none',  label: 'Centrada',   Icon: AlignCenter },
+            { v: 'right', label: 'Derecha',    Icon: AlignRight },
+          ] as const).map(({ v, label, Icon }) => (
+            <button
+              key={v}
+              type="button"
+              title={label}
+              onClick={() => setSelectedImageAlign(v)}
+              className={cn(
+                'h-6 w-6 flex items-center justify-center rounded transition-colors',
+                editor.getAttributes('image').align === v
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-accent',
+              )}
+            >
+              <Icon size={12} />
+            </button>
+          ))}
+          <Divider />
+          <button
+            type="button"
+            title="Eliminar imagen"
+            onClick={() => editor.chain().focus().deleteSelection().run()}
+            className="h-6 w-6 flex items-center justify-center rounded text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <X size={13} />
+          </button>
         </div>
       )}
 

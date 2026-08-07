@@ -43,7 +43,7 @@ export interface Template {
   id: string
   name: string
   type: 'template' | 'signature'
-  subject?: string
+  subject?: string | null
   body: string
   createdAt: string
 }

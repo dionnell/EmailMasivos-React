@@ -4,7 +4,7 @@ export const templateSchema = z
   .object({
     name:    z.string().min(1, 'El nombre es requerido'),
     type:    z.enum(['template', 'signature']),
-    subject: z.string().optional(),
+    subject: z.string().nullable().optional(),
     body:    z.string().min(1, 'El cuerpo es muy corto'),
   })
   .refine(
