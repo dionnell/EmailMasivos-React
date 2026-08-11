@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { editUserSchema, type EditUserFormValues } from '../schemas/user.schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { RoleToggle } from './RoleToggle'
 import { cn } from '@/lib/utils'
@@ -40,7 +41,7 @@ export function EditUserForm({ defaultValues, onSubmit, isLoading }: Props) {
           Nueva contraseña{' '}
           <span className="text-muted-foreground text-xs font-normal">(dejar en blanco para no cambiarla)</span>
         </Label>
-        <Input type="password" {...register('password')} placeholder="••••••••" />
+        <PasswordInput {...register('password')} placeholder="••••••••" />
         {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
       </div>
 
