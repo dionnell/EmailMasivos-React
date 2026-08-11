@@ -55,3 +55,16 @@ export interface DashboardMetrics {
   avgDeliveryRate: number
   recentCampaigns: Campaign[]
 }
+
+export type UserRole = 'admin' | 'mailMasivo'
+
+export interface User {
+  id: string
+  email: string
+  fullName: string
+  roles: UserRole[]
+  isActive: boolean
+  phone?: string | null
+  address?: string | null
+  createdAt: string
+}

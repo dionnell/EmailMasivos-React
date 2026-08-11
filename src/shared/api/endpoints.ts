@@ -1,4 +1,12 @@
 export const ENDPOINTS = {
+  auth: {
+    login:       '/auth/login',
+    checkStatus: '/auth/check-status',
+    users:       '/auth/users',
+    createUser:  '/auth/register',
+    updateUser:  (id: string) => `/auth/users/${id}`,
+    deleteUser:  (id: string) => `/auth/users/${id}`,
+  },
   campaigns: {
     list:   '/campaigns',
     create: '/campaigns',
